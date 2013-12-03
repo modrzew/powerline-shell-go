@@ -370,7 +370,6 @@ func GetGitStatus() GitStatus {
     }
 
     for _, line := range strings.Split(out.String(), "\n") {
-        fmt.Println(line)
         occurence := strings.Index(line, "Your branch is ")
         if occurence != -1 {
             parts := strings.Split(line[occurence + len("Your branch is "):], " ")
