@@ -21,4 +21,5 @@
 SEGMENTS = virtual_env username hostname ssh cwd read_only git hg svn fossil jobs root
 
 # Change the colors used to draw individual segments in your prompt
-THEME = default
+#THEME = default
+THEME = solarized_dark

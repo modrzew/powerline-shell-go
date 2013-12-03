@@ -2,7 +2,9 @@ package main
 
 import "os"
 import "fmt"
+import "path"
 import "strings"
+import "strconv"
 import "github.com/vaughan0/go-ini"
 
 type person struct {
@@ -76,8 +78,6 @@ type Powerline struct {
 }
 
 func (p *Powerline) SetColorTemplate() {
-    //p.segments = make([20]PowerlineAppendArgs)
-    //p.segments = make([]PowerlineAppendArgs)
     p.color_template = color_templates[p.args.shell]
 }
 
@@ -114,28 +114,26 @@ func (p Powerline) BGColor(code string) string {
 }
 
 func (p *Powerline) Append(args PowerlineAppendArgs) {
-    if &args.separator == nil {
+    if args.separator == "" {
         args.separator = p.separator
     }
 
-    if &args.separator_fg == nil {
+    if args.separator_fg == "" {
         args.separator_fg = args.bg
     }
 
     p.segments = append(p.segments, args)
-
-//        self.segments.append((content, fg, bg, separator or self.separator,
-//            separator_fg or bg))
 }
 
 func (p Powerline) Draw() string {
     var out string = ""
     //return (''.join(self.draw_segment(i) for i in range(len(self.segments)))
     //            + self.reset).encode('utf-8')
-    fmt.Println(p.segments)
+
     for idx, _ := range p.segments {
-        out += p.DrawSegment(idx) + p.reset
+        out += p.DrawSegment(idx)
     }
+    out += p.reset
     return out
 }
 
@@ -150,7 +148,7 @@ func (p Powerline) DrawSegment(idx int) string {
     out += p.FGColor(segment.fg)
     out += p.BGColor(segment.bg)
     out += segment.content
-    if &next_segment != nil {
+    if next_segment.content != "" {
         out += p.BGColor(next_segment.bg)
     } else {
         out += p.reset
@@ -170,7 +168,7 @@ func (p Powerline) DrawSegment(idx int) string {
     return out
 }
 
-func get_valid_cwd() string {
+func GetValidCwd() string {
     //    We check if the current working directory is valid or not. Typically
     //    happens when you checkout a different branch on git that doesn't have
     //    this directory.
@@ -178,8 +176,6 @@ func get_valid_cwd() string {
     //    the working directory, so returning our guess will confuse people
     //
     wd, err := os.Getwd()
-    //fmt.Println("err:", err)
-    //fmt.Println("wd:", wd)
     if err != nil {
         panic(err)
     }
@@ -204,6 +200,18 @@ func get_valid_cwd() string {
     return wd
 }
 
+func (p *Powerline) AddVirtualEnvSegment() {
+    var env string = os.Getenv("VIRTUAL_ENV")
+    if env == "" {
+        return
+    }
+
+    var env_name string = path.Base(env)
+    var content string = fmt.Sprintf(" %s ", env_name)
+
+    p.Append(PowerlineAppendArgs{content: content, fg: colors["VIRTUAL_ENV_FG"], bg: colors["VIRTUAL_ENV_BG"]})
+}
+
 func (p *Powerline) AddUsernameSegment() {
     var user_prompt string = ""
 
@@ -216,6 +224,136 @@ func (p *Powerline) AddUsernameSegment() {
     }
 
     p.Append(PowerlineAppendArgs{content: user_prompt, fg: colors["USERNAME_FG"], bg: colors["USERNAME_BG"]})
+}
+
+func (p *Powerline) AddHostnameSegment() {
+    var host_prompt string
+    hostname, err := os.Hostname()
+    if err != nil {
+        panic(err)
+    }
+    //fmt.Println("hostname")
+    //fmt.Println(hostname)
+
+    if p.args.colorize_hostname {
+
+        //from lib.color_compliment import stringToHashToColorAndOpposite
+        //from lib.colortrans import rgb2short
+        //FG, BG = stringToHashToColorAndOpposite(hostname)
+        //FG, BG = (rgb2short(*color) for color in [FG, BG])
+        //host_prompt = ' %s' % hostname.split('.')[0]
+
+        //powerline.append(host_prompt, FG, BG)
+    } else {
+        if p.args.shell == "bash" {
+            host_prompt = " \\h "
+        } else if p.args.shell == "zsh" {
+            host_prompt = " %m "
+        } else {
+            host_prompt = fmt.Sprintf(" %s ", strings.Split(hostname, ".")[0])
+        }
+
+        p.Append(PowerlineAppendArgs{content: host_prompt, fg: colors["HOSTNAME_FG"], bg: colors["HOSTNAME_BG"]})
+    }
+}
+
+func (p *Powerline) AddSshSegment() {
+    var ssh_client string = os.Getenv("SSH_CLIENT")
+    var content string = fmt.Sprintf(" %s ", p.network)
+    if ssh_client != "" {
+        p.Append(PowerlineAppendArgs{content: content, fg: colors["SSH_FG"], bg: colors["SSH_BG"]})
+    }
+}
+
+func GetShortPath(cwd string) []string {
+    var home string = os.Getenv("HOME")
+    home_dir, err := os.Stat(home)
+    if err != nil {
+        panic(err)
+    }
+
+    var names = strings.Split(cwd, string(os.PathSeparator))
+
+    if names[0] == "" {
+        names = names[1:]
+    }
+
+    var path string = ""
+    for index := 0; index < len(names); index++ {
+        path += string(os.PathSeparator) + names[index]
+
+        path_dir, err := os.Stat(path)
+        if err != nil {
+            panic(err)
+        }
+
+        if os.SameFile(path_dir, home_dir) {
+            var ind int = index + 1
+            return append([]string{"~"}, names[ind:]...)
+        }
+    }
+
+    if len(names) == 0 {
+        return []string{"~"}
+    }
+    return names
+}
+
+func (p *Powerline) AddCwdSegment() {
+    var cwd string
+    var names []string
+    var max_depth int
+    if p.cwd != "" {
+        cwd = p.cwd
+    } else {
+        cwd = os.Getenv("PWD")
+    }
+
+    names = GetShortPath(cwd)
+    max_depth = p.args.cwd_max_depth
+
+    if len(names) > max_depth {
+        //names = names[:2] + ["\u2026"] + names[2 - max_depth:]
+    }
+
+    home_special_display, err := strconv.ParseBool(colors["HOME_SPECIAL_DISPLAY"])
+    if err != nil {
+        panic(err)
+    }
+
+    if p.args.cwd_only != true {
+        for _, n := range names[:len(names)-1] {
+            var content string = fmt.Sprintf(" %s ", n)
+            if n == "~" && home_special_display {
+                p.Append(PowerlineAppendArgs{content: content, fg: colors["HOME_FG"], bg: colors["HOME_BG"]})
+            } else {
+                p.Append(PowerlineAppendArgs{content: content, fg: colors["PATH_FG"], bg: colors["PATH_BG"],
+                    separator: p.separator_thin, separator_fg: colors["SEPARATOR_FG"]})
+            }
+        }
+    }
+
+    var content string = fmt.Sprintf(" %s ", names[len(names)-1])
+
+    if names[len(names)-1] == "~" && home_special_display {
+        p.Append(PowerlineAppendArgs{content: content, fg: colors["HOME_FG"], bg: colors["HOME_BG"]})
+    } else {
+        p.Append(PowerlineAppendArgs{content: content, fg: colors["CWD_FG"], bg: colors["PATH_BG"]})
+    }
+}
+
+func (p *Powerline) AddReadOnlySegment() {
+//     var cwd string
+//     if p.cwd != "" {
+//         cwd = p.cwd
+//     } else {
+//         cwd = os.Getenv("PWD")
+//     }
+
+    
+    // TODO: fix that
+    //if not os.access(cwd, os.W_OK):
+    //    powerline.append(' %s ' % powerline.lock, Color.READONLY_FG, Color.READONLY_BG)
 }
 
 func (p *Powerline) AddRootIndicatorSegment() {
@@ -232,71 +370,6 @@ func (p *Powerline) AddRootIndicatorSegment() {
     }
 
     p.Append(PowerlineAppendArgs{content: root_indicators[p.args.shell], fg: fg, bg: bg})
-}
-
-
-func GetShortPath(cwd string) []string {
-    var home string = os.Getenv("HOME")
-    fmt.Println(string(os.PathSeparator))
-    fmt.Println(home)
-    var names = strings.Split(cwd, string(os.PathSeparator))
-
-    if names[0] == "" {
-        names = names[1:]
-    }
-
-    var path string = ""
-    for index := 1; index < len(names); index++ {
-        path += string(os.PathSeparator) + names[index]
-        path_dir, err := os.Stat(path)
-        if err != nil {
-            panic(err)
-        }
-        home_dir, err := os.Stat(home)
-        if err != nil {
-            panic(err)
-        }
-        if os.SameFile(path_dir, home_dir) {
-            var ind int = index + 1
-            fmt.Println(names[ind:])
-            //return append([]string{"~"}, names[ind:])
-        }
-    }
-
-    if len(names) == 0 {
-        return []string{"~"}
-    }
-    return names
-//     if names[0] == '': names = names[1:]
-//     path = ''
-//     for i in range(len(names)):
-//         path += os.sep + names[i]
-//         if os.path.samefile(path, home):
-//             return ['~'] + names[i+1:]
-//     if not names[0]:
-//         return ['/']
-//     return names
-// 
-// def add_cwd_segment():
-//     cwd = powerline.cwd or os.getenv('PWD')
-//     names = get_short_path(cwd.decode('utf-8'))
-// 
-//     max_depth = powerline.args.cwd_max_depth
-//     if len(names) > max_depth:
-//         names = names[:2] + [u'\u2026'] + names[2 - max_depth:]
-// 
-//     if not powerline.args.cwd_only:
-//         for n in names[:-1]:
-//             if n == '~' and Color.HOME_SPECIAL_DISPLAY:
-//                 powerline.append(' %s ' % n, Color.HOME_FG, Color.HOME_BG)
-//             else:
-//                 powerline.append(' %s ' % n, Color.PATH_FG, Color.PATH_BG,
-//                     powerline.separator_thin, Color.SEPARATOR_FG)
-// 
-//     if names[-1] == '~' and Color.HOME_SPECIAL_DISPLAY:
-//         powerline.append(' %s ' % names[-1], Color.HOME_FG, Color.HOME_BG)
-//     else:
-//         powerline.append(' %s ' % names[-1], Color.CWD_FG, Color.PATH_BG)
 }
 
 
@@ -327,12 +400,12 @@ func main() {
         colors[key] = value
     }
 
-    GetShortPath(get_valid_cwd())
+    GetShortPath(GetValidCwd())
 
     // colorize_hostname=False, cwd_max_depth=5, cwd_only=False, mode='patched', prev_error=0, shell='bash'
     args := PowerlineArgs{colorize_hostname: false, cwd_max_depth: 5, cwd_only: false, mode: "patched", prev_error: 0, shell: "bash"}
 
-    p := Powerline{args: args, cwd: get_valid_cwd()}
+    p := Powerline{args: args, cwd: GetValidCwd()}
     p.SetColorTemplate()
     p.SetReset()
     p.SetLock()
@@ -340,9 +413,13 @@ func main() {
     p.SetSeparator()
     p.SetSeparatorThin()
 
+    p.AddVirtualEnvSegment()
     p.AddUsernameSegment()
+    p.AddHostnameSegment()
+    p.AddSshSegment()
+    p.AddCwdSegment()
     p.AddRootIndicatorSegment()
-    fmt.Println(p)
+    //fmt.Println(p)
     fmt.Println(p.Draw())
 
     
