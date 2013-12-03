@@ -1,0 +1,51 @@
+[COLORS]
+USERNAME_FG = 250
+USERNAME_BG = 240
+
+HOSTNAME_FG = 250
+HOSTNAME_BG = 238
+
+HOME_SPECIAL_DISPLAY = 1
+# blueish
+HOME_BG = 31
+# white
+HOME_FG = 15
+# dark grey
+PATH_BG = 237
+# light grey
+PATH_FG = 250
+# nearly-white grey
+CWD_FG = 254
+SEPARATOR_FG = 244
+
+READONLY_BG = 124
+READONLY_FG = 254
+
+# medium orange
+SSH_BG = 166
+SSH_FG = 254
+
+# a light green color
+REPO_CLEAN_BG = 148
+# black
+REPO_CLEAN_FG = 0
+# pink/red
+REPO_DIRTY_BG = 161
+# white
+REPO_DIRTY_FG = 15
+
+JOBS_FG = 39
+JOBS_BG = 238
+
+CMD_PASSED_BG = 236
+CMD_PASSED_FG = 15
+CMD_FAILED_BG = 161
+CMD_FAILED_FG = 15
+
+SVN_CHANGES_BG = 148
+# dark green
+SVN_CHANGES_FG = 22
+
+# a mid-tone green
+VIRTUAL_ENV_BG = 35
+VIRTUAL_ENV_FG = 00
