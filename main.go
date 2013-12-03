@@ -3,13 +3,16 @@ package main
 import "os"
 import "fmt"
 import "path"
+import "bytes"
 import "strings"
 import "strconv"
+import "os/exec"
 import "github.com/vaughan0/go-ini"
 
-type person struct {
-    name string
-    age  int
+type GitStatus struct {
+    has_pending_commits bool
+    has_untracked_files bool
+    origin_position string
 }
 
 type Symbols struct {
@@ -126,7 +129,7 @@ func (p *Powerline) Append(args PowerlineAppendArgs) {
 }
 
 func (p Powerline) Draw() string {
-    var out string = ""
+    out := ""
     //return (''.join(self.draw_segment(i) for i in range(len(self.segments)))
     //            + self.reset).encode('utf-8')
 
@@ -138,7 +141,7 @@ func (p Powerline) Draw() string {
 }
 
 func (p Powerline) DrawSegment(idx int) string {
-    var out string = ""
+    out := ""
     var segment PowerlineAppendArgs = p.segments[idx]
     var next_segment PowerlineAppendArgs
     if (idx < len(p.segments) - 1) {
@@ -201,19 +204,19 @@ func GetValidCwd() string {
 }
 
 func (p *Powerline) AddVirtualEnvSegment() {
-    var env string = os.Getenv("VIRTUAL_ENV")
+    env := os.Getenv("VIRTUAL_ENV")
     if env == "" {
         return
     }
 
-    var env_name string = path.Base(env)
-    var content string = fmt.Sprintf(" %s ", env_name)
+    env_name := path.Base(env)
+    content := fmt.Sprintf(" %s ", env_name)
 
     p.Append(PowerlineAppendArgs{content: content, fg: colors["VIRTUAL_ENV_FG"], bg: colors["VIRTUAL_ENV_BG"]})
 }
 
 func (p *Powerline) AddUsernameSegment() {
-    var user_prompt string = ""
+    user_prompt := ""
 
     if (p.args.shell == "bash") {
         user_prompt = " \\u "
@@ -227,13 +230,11 @@ func (p *Powerline) AddUsernameSegment() {
 }
 
 func (p *Powerline) AddHostnameSegment() {
-    var host_prompt string
+    host_prompt := ""
     hostname, err := os.Hostname()
     if err != nil {
         panic(err)
     }
-    //fmt.Println("hostname")
-    //fmt.Println(hostname)
 
     if p.args.colorize_hostname {
 
@@ -258,27 +259,27 @@ func (p *Powerline) AddHostnameSegment() {
 }
 
 func (p *Powerline) AddSshSegment() {
-    var ssh_client string = os.Getenv("SSH_CLIENT")
-    var content string = fmt.Sprintf(" %s ", p.network)
+    ssh_client := os.Getenv("SSH_CLIENT")
+    content := fmt.Sprintf(" %s ", p.network)
     if ssh_client != "" {
         p.Append(PowerlineAppendArgs{content: content, fg: colors["SSH_FG"], bg: colors["SSH_BG"]})
     }
 }
 
 func GetShortPath(cwd string) []string {
-    var home string = os.Getenv("HOME")
+    home := os.Getenv("HOME")
     home_dir, err := os.Stat(home)
     if err != nil {
         panic(err)
     }
 
-    var names = strings.Split(cwd, string(os.PathSeparator))
+    names := strings.Split(cwd, string(os.PathSeparator))
 
     if names[0] == "" {
         names = names[1:]
     }
 
-    var path string = ""
+    path := ""
     for index := 0; index < len(names); index++ {
         path += string(os.PathSeparator) + names[index]
 
@@ -302,7 +303,6 @@ func GetShortPath(cwd string) []string {
 func (p *Powerline) AddCwdSegment() {
     var cwd string
     var names []string
-    var max_depth int
     if p.cwd != "" {
         cwd = p.cwd
     } else {
@@ -310,7 +310,7 @@ func (p *Powerline) AddCwdSegment() {
     }
 
     names = GetShortPath(cwd)
-    max_depth = p.args.cwd_max_depth
+    max_depth := p.args.cwd_max_depth
 
     if len(names) > max_depth {
         //names = names[:2] + ["\u2026"] + names[2 - max_depth:]
@@ -323,7 +323,7 @@ func (p *Powerline) AddCwdSegment() {
 
     if p.args.cwd_only != true {
         for _, n := range names[:len(names)-1] {
-            var content string = fmt.Sprintf(" %s ", n)
+            content := fmt.Sprintf(" %s ", n)
             if n == "~" && home_special_display {
                 p.Append(PowerlineAppendArgs{content: content, fg: colors["HOME_FG"], bg: colors["HOME_BG"]})
             } else {
@@ -333,7 +333,7 @@ func (p *Powerline) AddCwdSegment() {
         }
     }
 
-    var content string = fmt.Sprintf(" %s ", names[len(names)-1])
+    content := fmt.Sprintf(" %s ", names[len(names)-1])
 
     if names[len(names)-1] == "~" && home_special_display {
         p.Append(PowerlineAppendArgs{content: content, fg: colors["HOME_FG"], bg: colors["HOME_BG"]})
@@ -356,14 +356,96 @@ func (p *Powerline) AddReadOnlySegment() {
     //    powerline.append(' %s ' % powerline.lock, Color.READONLY_FG, Color.READONLY_BG)
 }
 
+
+func GetGitStatus() GitStatus {
+    var gitstatus GitStatus
+
+    cmd := exec.Command("git", "status", "--ignore-submodules")
+
+    var out bytes.Buffer
+    cmd.Stdout = &out
+    err := cmd.Run()
+    if err != nil {
+        panic(err)
+    }
+
+    for _, line := range strings.Split(out.String(), "\n") {
+        fmt.Println(line)
+        occurence := strings.Index(line, "Your branch is ")
+        if occurence != -1 {
+            parts := strings.Split(line[occurence + len("Your branch is "):], " ")
+
+            gitstatus.origin_position += fmt.Sprintf(" %s", parts[len(parts) - 2])
+
+            if parts[0] == "behind" {
+                gitstatus.origin_position += "\u21E3"
+            } else if parts[0] == "ahead" {
+                gitstatus.origin_position += "\u21E1"
+            }
+        }
+
+        if(strings.Contains(line, "nothing to commit")) {
+            gitstatus.has_pending_commits = false
+        }
+        if(strings.Contains(line, "Untracked files")) {
+            gitstatus.has_untracked_files = true
+        }        
+    }
+
+    return gitstatus
+}
+
+func (p *Powerline) AddGitSegment() {
+    // git branch 2> /dev/null | grep -e '\\*'
+    cmd_git_branch := exec.Command("git", "branch", "--no-color")
+    var git_branch_out bytes.Buffer
+    cmd_git_branch.Stdout = &git_branch_out
+    err := cmd_git_branch.Run()
+    if err != nil {
+        panic(err)
+    }
+
+    cmd_grep := exec.Command("grep", "-e", "\\*")
+    cmd_grep.Stdin = &git_branch_out
+
+    var grep_out bytes.Buffer
+    cmd_grep.Stdout = &grep_out
+    err2 := cmd_grep.Run()
+    if err2 != nil {
+        panic(err2)
+    }
+
+    if grep_out.String() == "" {
+        return
+    }
+
+    branch := strings.TrimSpace(grep_out.String()[2:])
+    gitstatus := GetGitStatus()
+    branch += gitstatus.origin_position
+    if gitstatus.has_untracked_files {
+        branch += " +"
+    }
+
+    bg := colors["REPO_CLEAN_BG"]
+    fg := colors["REPO_CLEAN_FG"]
+    if gitstatus.has_pending_commits {
+        bg = colors["REPO_DIRTY_BG"]
+        fg = colors["REPO_DIRTY_FG"]
+    }
+
+    content := fmt.Sprintf(" %s ", branch)
+
+    p.Append(PowerlineAppendArgs{content: content, fg: fg, bg: bg})
+}
+
 func (p *Powerline) AddRootIndicatorSegment() {
-    var root_indicators = map[string] string {
+    root_indicators := map[string] string {
         "bash": " \\$ ",
         "zsh": " \\$ ",
         "bare": " $ ",
     }
-    var bg = colors["CMD_PASSED_BG"]
-    var fg = colors["CMD_PASSED_FG"]
+    bg := colors["CMD_PASSED_BG"]
+    fg := colors["CMD_PASSED_FG"]
     if p.args.prev_error != 0 {
         fg = colors["CMD_FAILED_FG"]
         bg = colors["CMD_FAILED_BG"]
@@ -396,11 +478,8 @@ func main() {
     }
 
     for key, value := range themefile["COLORS"] {
-        //fmt.Printf("%s => %s\n", key, value)
         colors[key] = value
     }
-
-    GetShortPath(GetValidCwd())
 
     // colorize_hostname=False, cwd_max_depth=5, cwd_only=False, mode='patched', prev_error=0, shell='bash'
     args := PowerlineArgs{colorize_hostname: false, cwd_max_depth: 5, cwd_only: false, mode: "patched", prev_error: 0, shell: "bash"}
@@ -418,9 +497,8 @@ func main() {
     p.AddHostnameSegment()
     p.AddSshSegment()
     p.AddCwdSegment()
+    p.AddGitSegment()
     p.AddRootIndicatorSegment()
-    //fmt.Println(p)
-    fmt.Println(p.Draw())
 
-    
+    fmt.Println(p.Draw())
 }
