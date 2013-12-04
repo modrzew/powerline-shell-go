@@ -375,7 +375,11 @@ func GetGitStatus() GitStatus {
         if occurence != -1 {
             parts := strings.Split(line[occurence + len("Your branch is "):], " ")
 
-            gitstatus.origin_position += fmt.Sprintf(" %s", parts[len(parts) - 2])
+            by_occurence := strings.Index(line[occurence + len("Your branch is "):], " by ")
+            commit_occurence := strings.Index(line[occurence + len("Your branch is "):], " commit")
+
+            commits_cnt := line[occurence + len("Your branch is "):][by_occurence + len(" by "):commit_occurence]
+            gitstatus.origin_position += fmt.Sprintf(" %s", strings.TrimSpace(commits_cnt))
 
             if parts[0] == "behind" {
                 gitstatus.origin_position += "\u21E3"
@@ -514,12 +518,6 @@ func main() {
     p.AddCwdSegment()
     p.AddGitSegment()
     p.AddRootIndicatorSegment()
-
-//     arguments := os.Args
-// 
-//     for i := 0; i<len(arguments); i++ {
-//         fmt.Printf("%s\n", arguments[i])
-//     }
 
     fmt.Printf(p.Draw())
 }
