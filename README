@@ -1,0 +1,20 @@
+
+Instalation:
+
+1. Download Go compiler
+2. tar -zxvf go1.2.linux-amd64.tar.gz
+3. Set path to GOROOT, like: export GOROOT=/home/kkszysiu/go/go
+4. export GOPATH=/home/kkszysiu/go/powerline-shell-go/
+5. /home/kkszysiu/go/go/bin/go get
+6. /home/kkszysiu/go/go/bin/go build
+7. Open ~/.bashrc
+8. Add 
+
+function _update_ps1() {
+  export PS1="$(/home/kkszysiu/go/powerline-shell-go/powerline-shell-go $? 2> /dev/null)"
+}
+
+export PROMPT_COMMAND="_update_ps1"
+
+9. ???
+10. PROFIT
