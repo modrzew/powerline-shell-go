@@ -3,6 +3,7 @@ package main
 import "os"
 import "fmt"
 import "path"
+import "path/filepath"
 import "bytes"
 import "strings"
 import "strconv"
@@ -130,8 +131,6 @@ func (p *Powerline) Append(args PowerlineAppendArgs) {
 
 func (p Powerline) Draw() string {
     out := ""
-    //return (''.join(self.draw_segment(i) for i in range(len(self.segments)))
-    //            + self.reset).encode('utf-8')
 
     for idx, _ := range p.segments {
         out += p.DrawSegment(idx)
@@ -359,6 +358,8 @@ func (p *Powerline) AddReadOnlySegment() {
 
 func GetGitStatus() GitStatus {
     var gitstatus GitStatus
+    gitstatus.has_pending_commits = true
+    gitstatus.has_untracked_files = false
 
     cmd := exec.Command("git", "status", "--ignore-submodules")
 
@@ -401,7 +402,8 @@ func (p *Powerline) AddGitSegment() {
     cmd_git_branch.Stdout = &git_branch_out
     err := cmd_git_branch.Run()
     if err != nil {
-        panic(err)
+        //panic(err)
+        return
     }
 
     cmd_grep := exec.Command("grep", "-e", "\\*")
@@ -455,7 +457,13 @@ func (p *Powerline) AddRootIndicatorSegment() {
 
 
 func main() {
-    configfile, err := ini.LoadFile("config")
+    exec_path := os.Args[0]
+    abs_exec_path, err := filepath.Abs(exec_path)
+    if err != nil {
+        panic(err)
+    }
+
+    configfile, err := ini.LoadFile(fmt.Sprintf("%s/config", filepath.Dir(abs_exec_path)))
     if err != nil {
         panic(err)
     }
@@ -471,7 +479,7 @@ func main() {
     }
 
     // Load theme
-    themefile, err := ini.LoadFile("themes/" + theme)
+    themefile, err := ini.LoadFile(fmt.Sprintf("%s/themes/%s", filepath.Dir(abs_exec_path), theme))
     if err != nil {
         panic(err)
     }
@@ -480,8 +488,16 @@ func main() {
         colors[key] = value
     }
 
+    var prev_error int = 0
+    if len(os.Args) > 1 {
+        prev_error, err = strconv.Atoi(os.Args[1])
+        if err != nil {
+            panic(err)
+        }
+    }
+    
     // colorize_hostname=False, cwd_max_depth=5, cwd_only=False, mode='patched', prev_error=0, shell='bash'
-    args := PowerlineArgs{colorize_hostname: false, cwd_max_depth: 5, cwd_only: false, mode: "patched", prev_error: 0, shell: "bash"}
+    args := PowerlineArgs{colorize_hostname: false, cwd_max_depth: 5, cwd_only: false, mode: "patched", prev_error: prev_error, shell: "bash"}
 
     p := Powerline{args: args, cwd: GetValidCwd()}
     p.SetColorTemplate()
@@ -499,5 +515,11 @@ func main() {
     p.AddGitSegment()
     p.AddRootIndicatorSegment()
 
-    fmt.Println(p.Draw())
+//     arguments := os.Args
+// 
+//     for i := 0; i<len(arguments); i++ {
+//         fmt.Printf("%s\n", arguments[i])
+//     }
+
+    fmt.Printf(p.Draw())
 }
