@@ -459,14 +459,7 @@ func (p *Powerline) AddRootIndicatorSegment() {
     p.Append(PowerlineAppendArgs{content: root_indicators[p.args.shell], fg: fg, bg: bg})
 }
 
-
-func main() {
-    exec_path := os.Args[0]
-    abs_exec_path, err := filepath.Abs(exec_path)
-    if err != nil {
-        panic(err)
-    }
-
+func LoadConfigAndTheme(abs_exec_path string) {
     configfile, err := ini.LoadFile(fmt.Sprintf("%s/config", filepath.Dir(abs_exec_path)))
     if err != nil {
         panic(err)
@@ -491,6 +484,14 @@ func main() {
     for key, value := range themefile["COLORS"] {
         colors[key] = value
     }
+}
+
+func main() {
+    exec_path := os.Args[0]
+    abs_exec_path, err := filepath.Abs(exec_path)
+    if err != nil {
+        panic(err)
+    }
 
     var prev_error int = 0
     if len(os.Args) > 1 {
@@ -499,6 +500,8 @@ func main() {
             panic(err)
         }
     }
+
+    LoadConfigAndTheme(abs_exec_path)
     
     // colorize_hostname=False, cwd_max_depth=5, cwd_only=False, mode='patched', prev_error=0, shell='bash'
     args := PowerlineArgs{colorize_hostname: false, cwd_max_depth: 5, cwd_only: false, mode: "patched", prev_error: prev_error, shell: "bash"}
