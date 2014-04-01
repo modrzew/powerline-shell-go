@@ -216,6 +216,7 @@ func (p *Powerline) AddVirtualEnvSegment() {
 
 func (p *Powerline) AddUsernameSegment() {
     user_prompt := ""
+    bgcolor := ""
 
     if (p.args.shell == "bash") {
         user_prompt = " \\u "
@@ -225,7 +226,13 @@ func (p *Powerline) AddUsernameSegment() {
         user_prompt = fmt.Sprintf(" %s ", os.Getenv("USER"))
     }
 
-    p.Append(PowerlineAppendArgs{content: user_prompt, fg: colors["USERNAME_FG"], bg: colors["USERNAME_BG"]})
+    if (os.Getenv("USER") == "root") {
+        bgcolor = colors["USERNAME_ROOT_BG"]
+    } else {
+        bgcolor = colors["USERNAME_BG"]
+    }
+
+    p.Append(PowerlineAppendArgs{content: user_prompt, fg: colors["USERNAME_FG"], bg: bgcolor})
 }
 
 func (p *Powerline) AddHostnameSegment() {
@@ -356,7 +363,7 @@ func (p *Powerline) AddReadOnlySegment() {
 }
 
 
-func GetGitStatus() GitStatus {
+func GetGitStatus() (GitStatus) {
     var gitstatus GitStatus
     gitstatus.has_pending_commits = true
     gitstatus.has_untracked_files = false
@@ -373,12 +380,13 @@ func GetGitStatus() GitStatus {
     for _, line := range strings.Split(out.String(), "\n") {
         occurence := strings.Index(line, "Your branch is ")
         if occurence != -1 {
-            parts := strings.Split(line[occurence + len("Your branch is "):], " ")
+            selected_line := line[occurence + len("Your branch is "):]
+            parts := strings.Split(selected_line, " ")
 
-            by_occurence := strings.Index(line[occurence + len("Your branch is "):], " by ")
-            commit_occurence := strings.Index(line[occurence + len("Your branch is "):], " commit")
+            by_occurence := strings.Index(selected_line, " by ")
+            commit_occurence := strings.Index(selected_line, " commit")
 
-            commits_cnt := line[occurence + len("Your branch is "):][by_occurence + len(" by "):commit_occurence]
+            commits_cnt := selected_line[by_occurence + len(" by "):commit_occurence]
             gitstatus.origin_position += fmt.Sprintf(" %s", strings.TrimSpace(commits_cnt))
 
             if parts[0] == "behind" {
@@ -417,15 +425,34 @@ func (p *Powerline) AddGitSegment() {
     cmd_grep.Stdout = &grep_out
     err2 := cmd_grep.Run()
     if err2 != nil {
-        panic(err2)
+        // show (no branch) segment in that case
+        content := fmt.Sprintf(" %s ", "(no branch)")
+
+        bg := colors["REPO_CLEAN_BG"]
+        fg := colors["REPO_CLEAN_FG"]
+        p.Append(PowerlineAppendArgs{content: content, fg: fg, bg: bg})
+        //panic(err2)
+        //return
     }
 
     if grep_out.String() == "" {
         return
     }
 
+    var status GitStatus
+    status.has_pending_commits = false
+    status.has_untracked_files = false
+    status.origin_position = ""
+    gitstatus := status
+
     branch := strings.TrimSpace(grep_out.String()[2:])
-    gitstatus := GetGitStatus()
+    defer func(){
+        if r := recover(); r != nil {
+            // recover / cleanup
+        }
+        gitstatus = GetGitStatus()
+    }()
+
     branch += gitstatus.origin_position
     if gitstatus.has_untracked_files {
         branch += " +"
