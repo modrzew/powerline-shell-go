@@ -386,13 +386,15 @@ func GetGitStatus() (GitStatus) {
             by_occurence := strings.Index(selected_line, " by ")
             commit_occurence := strings.Index(selected_line, " commit")
 
-            commits_cnt := selected_line[by_occurence + len(" by "):commit_occurence]
-            gitstatus.origin_position += fmt.Sprintf(" %s", strings.TrimSpace(commits_cnt))
+            if commit_occurence != -1 {
+                commits_cnt := selected_line[by_occurence + len(" by "):commit_occurence]
+                gitstatus.origin_position += fmt.Sprintf(" %s", strings.TrimSpace(commits_cnt))
 
-            if parts[0] == "behind" {
-                gitstatus.origin_position += "\u21E3"
-            } else if parts[0] == "ahead" {
-                gitstatus.origin_position += "\u21E1"
+                if parts[0] == "behind" {
+                    gitstatus.origin_position += "\u21E3"
+                } else if parts[0] == "ahead" {
+                    gitstatus.origin_position += "\u21E1"
+                }
             }
         }
 
@@ -401,7 +403,7 @@ func GetGitStatus() (GitStatus) {
         }
         if(strings.Contains(line, "Untracked files")) {
             gitstatus.has_untracked_files = true
-        }        
+        }
     }
 
     return gitstatus
