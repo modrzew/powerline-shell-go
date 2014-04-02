@@ -441,19 +441,9 @@ func (p *Powerline) AddGitSegment() {
         return
     }
 
-    var status GitStatus
-    status.has_pending_commits = false
-    status.has_untracked_files = false
-    status.origin_position = ""
-    gitstatus := status
-
     branch := strings.TrimSpace(grep_out.String()[2:])
-    defer func(){
-        if r := recover(); r != nil {
-            // recover / cleanup
-        }
-        gitstatus = GetGitStatus()
-    }()
+
+    gitstatus := GetGitStatus()
 
     branch += gitstatus.origin_position
     if gitstatus.has_untracked_files {
