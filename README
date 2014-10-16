@@ -2,10 +2,17 @@ Instalation:
 
 1. Download Go compiler
 2. tar -zxvf go1.2.linux-amd64.tar.gz
-3. Set path to GOROOT, like: export GOROOT=/home/kkszysiu/go/go
-4. export GOPATH=/home/kkszysiu/go/powerline-shell-go/
-5. /home/kkszysiu/go/go/bin/go get
-6. /home/kkszysiu/go/go/bin/go build
+3. Add following to `.profile.:
+
+```
+#!bash
+export PATH=$PATH:/opt/go/bin
+export GOPATH=$HOME/go
+export GOROOT=/opt/go
+```
+
+5. `go get`
+6. `go build`
 7. Open ~/.bashrc
 8. Add 
 
