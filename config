@@ -20,6 +20,6 @@
 # root - Shows a '#' if the current user is root, '$' otherwise, also, changes color if the last command exited with a non-zero error code
 SEGMENTS = virtual_env username hostname ssh cwd read_only git hg svn fossil jobs root
 
+
 # Change the colors used to draw individual segments in your prompt
-#THEME = default
-THEME = solarized_dark
+THEME = default

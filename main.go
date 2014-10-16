@@ -523,7 +523,7 @@ func main() {
     LoadConfigAndTheme(abs_exec_path)
     
     // colorize_hostname=False, cwd_max_depth=5, cwd_only=False, mode='patched', prev_error=0, shell='bash'
-    args := PowerlineArgs{colorize_hostname: false, cwd_max_depth: 5, cwd_only: false, mode: "patched", prev_error: prev_error, shell: "bash"}
+    args := PowerlineArgs{colorize_hostname: false, cwd_max_depth: 5, cwd_only: true, mode: "patched", prev_error: prev_error, shell: "bash"}
 
     p := Powerline{args: args, cwd: GetValidCwd()}
     p.SetColorTemplate()
@@ -534,12 +534,12 @@ func main() {
     p.SetSeparatorThin()
 
     p.AddVirtualEnvSegment()
-    p.AddUsernameSegment()
+    // p.AddUsernameSegment()
     p.AddHostnameSegment()
     p.AddSshSegment()
     p.AddCwdSegment()
     p.AddGitSegment()
     p.AddRootIndicatorSegment()
 
-    fmt.Printf(p.Draw())
+    fmt.Printf(p.Draw() + " ")
 }
